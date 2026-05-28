@@ -84,7 +84,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // 🚀 F5防失憶機制：網頁載入時自動從後端撈取怪獸狀態
   useEffect(() => {
     if (userId) {
-      fetch(` https://rich-cobras-poke.loca.lt/api/monster/${userId}`)
+      fetch(`https://emo-gotchi.onrender.com/api/monster/${userId}`)
         .then((res) => res.json())
         .then((backendMonster) => {
           if (backendMonster && !backendMonster.message) {
@@ -107,7 +107,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // 🚀 日記加載機制：自動拉取歷史心情日記，內建安全防護罩防止髒資料造成死白
   useEffect(() => {
     if (userId) {
-      fetch(` https://rich-cobras-poke.loca.lt/api/diary/${userId}`)
+      fetch(` https://emo-gotchi.onrender.com/api/diary/${userId}`)
         .then((res) => res.json())
         .then((data) => {
           if (Array.isArray(data)) {
@@ -135,7 +135,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const syncMonsterToServer = async (updatedMonster: MonsterState) => {
     if (!userId) return;
     try {
-      await fetch(` https://rich-cobras-poke.loca.lt/api/monster/${userId}/update`, {
+      await fetch(` https://emo-gotchi.onrender.com/api/monster/${userId}/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -232,7 +232,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const response = await fetch(` https://rich-cobras-poke.loca.lt/api/diary/${userId}`, {
+      const response = await fetch(` https://emo-gotchi.onrender.com/api/diary/${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ monsterSnapshot: monster })

@@ -26,7 +26,7 @@ export function CommunityView() {
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('http://localhost:3001/api/community/posts?page=1&limit=20');
+      const response = await fetch('https://emo-gotchi.onrender.com/api/community/posts?page=1&limit=20');
       const data = await response.json();
 
       // 將後端的資料格式，轉換成前端畫面上需要的格式
@@ -88,7 +88,7 @@ export function CommunityView() {
 
     // 背景默默打 API 去後端修改真實資料庫
     try {
-      await fetch(`http://localhost:3001/api/community/posts/${postId}/like`, {
+      await fetch(`https://emo-gotchi.onrender.com/api/community/posts/${postId}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })
@@ -110,7 +110,7 @@ export function CommunityView() {
     e?.stopPropagation();
 
     try {
-      const response = await fetch(`http://localhost:3001/api/community/posts/${postId}`, {
+      const response = await fetch(`https://emo-gotchi.onrender.com/api/community/posts/${postId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }) // 告訴後端是我要刪的
@@ -136,7 +136,7 @@ export function CommunityView() {
     if (!selectedPostId || !commentInput.trim()) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/community/posts/${selectedPostId}/comment`, {
+      const response = await fetch(`https://emo-gotchi.onrender.com/api/community/posts/${selectedPostId}/comment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ export function CommunityView() {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/community/posts', {
+      const response = await fetch('https://emo-gotchi.onrender.com/api/community/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

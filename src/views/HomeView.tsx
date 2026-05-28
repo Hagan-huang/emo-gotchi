@@ -28,7 +28,8 @@ export function HomeView() {
     soundEffects.pop();
 
     try {
-      const fetchResult = await fetch(' https://rich-cobras-poke.loca.lt/api/chat', {
+      // 👇 完美對接：這裡已成功替換成你的正式雲端後端網址
+      const fetchResult = await fetch('https://emo-gotchi.onrender.com/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,6 +152,8 @@ export function HomeView() {
           <button
             type="submit"
             disabled={isSubmitting || !inputValue.trim()}
+            aria-label="送出訊息" // 👈 新增這行：供螢幕閱讀器辨識
+            title="送出訊息"     // 👈 新增這行：滑鼠懸停時會顯示小提示，同時滿足 Edge 檢查
             className="w-[60px] h-[60px] shrink-0 bg-[#FFD54F] border-[4px] border-[#5D4037] rounded-2xl flex items-center justify-center text-[#5D4037] transition-all hover:bg-[#FFE082] active:translate-y-1 disabled:opacity-50"
           >
             <SendHorizontal size={26} strokeWidth={3} className="-ml-0.5 mt-0.5" />

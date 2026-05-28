@@ -141,6 +141,34 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { username, newPassword } = req.body;
+
+    if (!username || !newPassword) {
+      return res.status(400).json({ message: '請輸入帳號與新密碼！' });
+    }
+
+    // 1. 尋找是否存在該用戶
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ message: '找不到該帳號，請確認是否輸入正確！' });
+    }
+
+    // 2. 將新密碼進行 Bcrypt 加密
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 3. 更新資料庫中的密碼
+    user.password = hashedPassword;
+    await user.save();
+
+    res.json({ message: '🎉 密碼重設成功！請使用新密碼重新登入。' });
+  } catch (error) {
+    console.error('重設密碼失敗：', error);
+    res.status(500).json({ message: '重設密碼失敗，伺服器出錯' });
+  }
+});
+
 // ==========================================
 // 👇 這是我們剛剛新增的：為了治好網頁 F5 重新整理失憶症
 // ==========================================
