@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "../store/AppContext";
-// ❌ 已經刪除假資料的 import
 import { MonsterAvatar } from "../components/Monster";
 import { Loader2, Heart, MessageCircle, Share2, Plus, X, Trash2, ArrowLeft, Send } from "lucide-react";
 import { CommunityPost, MonsterState } from "../types";
 import { soundEffects } from "../utils/audio";
 
 export function CommunityView() {
-  // ✅ 1. 多把 userId 和 username 拿出來用
   const { userId, username, communityPosts, setCommunityPosts, showToast, monster, diaries } = useApp();
   const [isLoading, setIsLoading] = useState(false);
   const [viewTab, setViewTab] = useState<"explore" | "myposts">("explore");
@@ -22,10 +20,11 @@ export function CommunityView() {
   const [showStory, setShowStory] = useState(true);
   const [showDaysOld, setShowDaysOld] = useState(true);
 
-  // ✅ 2. 實作「拉取真實後端貼文」的函數
+  // 拉取真實後端貼文的函數
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
+      // ✅ 這裡之前在全域取代時，應該都已經對準你的 Render 網址了！
       const response = await fetch('https://emo-gotchi.onrender.com/api/community/posts?page=1&limit=20');
       const data = await response.json();
 
@@ -43,13 +42,15 @@ export function CommunityView() {
           content: c.content,
           createdAt: new Date(c.createdAt).getTime()
         })),
+        // 🔥【前端核心修正區塊】把後端快照的所有外觀狀態解鎖出來！
         monster: {
-          isEgg: false, 
+          isEgg: p.monsterSnapshot?.isEgg !== undefined ? p.monsterSnapshot.isEgg : false, 
           hatchTime: new Date(p.createdAt).getTime(), 
+          color: p.monsterSnapshot?.color || '#FFD54F', // 🎨 傳入皮膚顏色
           negativeValue: 100 - (p.monsterSnapshot?.moodScore || 50),
           emotionLabel: p.monsterSnapshot?.emotionLabel || '平靜',
           daysOld: 1,
-          accessories: { head: null, face: null, body: null },
+          accessories: p.monsterSnapshot?.accessories || { head: null, face: null, body: null }, // 👑 傳入飾品
           conversationCount: p.monsterSnapshot?.conversationCount || 0
         },
         createdAt: new Date(p.createdAt).getTime(),
@@ -71,12 +72,11 @@ export function CommunityView() {
     fetchPosts();
   }, [fetchPosts]);
 
-  // ✅ 3. 串接真實後端：防作弊按讚
+  // 串接真實後端：防作弊按讚
   const handleLike = async (postId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     soundEffects.pop();
 
-    // 樂觀更新：先讓畫面愛心亮起來（讓使用者覺得很快）
     setCommunityPosts((prev) =>
       prev.map((p) => {
         if (p.id === postId) {
@@ -86,7 +86,6 @@ export function CommunityView() {
       })
     );
 
-    // 背景默默打 API 去後端修改真實資料庫
     try {
       await fetch(`https://emo-gotchi.onrender.com/api/community/posts/${postId}/like`, {
         method: 'POST',
@@ -113,11 +112,10 @@ export function CommunityView() {
       const response = await fetch(`https://emo-gotchi.onrender.com/api/community/posts/${postId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId }) // 告訴後端是我要刪的
+        body: JSON.stringify({ userId })
       });
 
       if (response.ok) {
-        // 後端刪除成功後，才把畫面上的貼文移除
         setCommunityPosts((prev) => prev.filter((p) => p.id !== postId));
         if (selectedPostId === postId) {
           setSelectedPostId(null);
@@ -140,7 +138,7 @@ export function CommunityView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: username || "訪客", // 傳送當前登入者的真實名字
+          username: username || "訪客",
           content: commentInput.trim()
         })
       });
@@ -148,7 +146,6 @@ export function CommunityView() {
       const data = await response.json();
 
       if (response.ok) {
-        // 用後端資料庫回傳的最新、帶有真正留言 ID 的陣列，即時更新畫面狀態
         setCommunityPosts((prev) =>
           prev.map((p) => {
             if (p.id === selectedPostId) {
@@ -167,7 +164,7 @@ export function CommunityView() {
     }
   };
 
-  // ✅ 4. 串接真實後端：發布貼文與怪獸快照
+  // 發布貼文與怪獸快照
   const handlePublish = async () => {
     if (publishSource === "current" && monster.isEgg) {
       showToast("無法發布", "小怪獸還沒孵化喔！");
@@ -191,7 +188,6 @@ export function CommunityView() {
         setIsPublishOpen(false);
         setViewTab("myposts");
         setPublishStory("");
-        // 發布完，立刻重新跟後端拉取最新牆面
         fetchPosts();
       } else {
         const data = await response.json();
@@ -204,10 +200,6 @@ export function CommunityView() {
 
   const currentList = viewTab === "explore" ? communityPosts.filter((p) => !p.isMyPost) : communityPosts.filter((p) => p.isMyPost);
   const selectedPost = communityPosts.find((p) => p.id === selectedPostId);
-
-// ==========================================
-// 👇 下方的 return ( ... ) UI 畫面完全不用動它！
-// ==========================================
 
   return (
     <div className="flex flex-col h-full fade-in w-full max-w-4xl mx-auto pb-4 relative">
@@ -419,7 +411,7 @@ export function CommunityView() {
             currentList.map((post) => (
               <div
                 key={post.id}
-                className="bg-[#FFF8E7] border-[4px] border-[#C7BBA2] rounded-[2rem] p-4 flex flex-col gap-3 shadow-none hover:-translate-y-1 transition-all group relative h-[250px]"
+                className="bg-[#FFF8E7] border-[4px] border-[4px] border-[#C7BBA2] rounded-[2rem] p-4 flex flex-col gap-3 shadow-none hover:-translate-y-1 transition-all group relative h-[250px]"
               >
                 {post.isMyPost && (
                   <button

@@ -196,7 +196,6 @@ app.get('/api/monster/:userId', async (req, res) => {
 app.post('/api/community/posts', async (req, res) => {
   try {
     const { userId, story, showStory, showDaysOld } = req.body;
-
     const user = await User.findById(userId);
     const monster = await Monster.findOne({ userId, isReleased: false });
 
@@ -204,16 +203,18 @@ app.post('/api/community/posts', async (req, res) => {
       return res.status(404).json({ message: '找不到使用者或活著的小怪獸，無法發文！' });
     }
 
-    // 拍下怪獸當前的「外觀快照」
+    // 🔥 完美進化版：連同皮膚、蛋狀態、以及所有飾品（頭、臉、體）一起拍下快照
     const monsterSnapshot = {
       name: monster.name,
+      color: monster.color || '#FFD54F',
+      isEgg: monster.isEgg,
       emotionLabel: monster.emotionLabel,
       moodScore: monster.moodScore,
       conversationCount: monster.conversationCount,
-      accessories: monster.accessories?.equipped || []
+      // 👇 確保完整捕捉物件，若無則給予預設空飾品結構
+      accessories: monster.accessories || { head: null, face: null, body: null }
     };
 
-    // 建立新貼文
     const newPost = new Post({
       userId,
       username: user.username,
@@ -225,7 +226,6 @@ app.post('/api/community/posts', async (req, res) => {
 
     await newPost.save();
     res.status(201).json({ message: '🎉 貼文成功發布到照片牆囉！', post: newPost });
-
   } catch (error) {
     console.error('發布貼文失敗：', error);
     res.status(500).json({ message: '發文失敗，伺服器可能有點累了。' });
