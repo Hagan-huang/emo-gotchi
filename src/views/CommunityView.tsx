@@ -44,10 +44,10 @@ export function CommunityView() {
         })),
         // 🔥【前端核心修正區塊】把後端快照的所有外觀狀態解鎖出來！
         monster: {
-          isEgg: p.monsterSnapshot?.isEgg !== undefined ? p.monsterSnapshot.isEgg : false, 
+          isEgg: p.monsterSnapshot?.isEgg === true,
           hatchTime: new Date(p.createdAt).getTime(), 
           color: p.monsterSnapshot?.color || '#FFD54F', // 🎨 傳入皮膚顏色
-          negativeValue: 100 - (p.monsterSnapshot?.moodScore || 50),
+          negativeValue: p.monsterSnapshot?.moodScore !== undefined ? (100 - p.monsterSnapshot.moodScore) : 50,
           emotionLabel: p.monsterSnapshot?.emotionLabel || '平靜',
           daysOld: 1,
           accessories: p.monsterSnapshot?.accessories || { head: null, face: null, body: null }, // 👑 傳入飾品
