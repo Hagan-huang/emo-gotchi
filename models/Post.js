@@ -1,44 +1,29 @@
 import mongoose from 'mongoose';
 
-const commentSchema = new mongoose.Schema({
-  username: { type: String, required: true },
-  content: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
-});
-
 const postSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  username: { type: String, required: true }, // 發文者的名字
-  story: { type: String, required: true },    // 故事內容
-  
-  // 隱私設定
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  username: { type: String, required: true },
+  story: { type: String, default: '' },
   showStory: { type: Boolean, default: true },
   showDaysOld: { type: Boolean, default: true },
-
-  // 【核心：怪獸外觀快照】發文當下怪獸的狀態定格
+  likes: { type: [String], default: [] },
+  comments: [
+    {
+      username: String,
+      content: String,
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
+  // 👇 核心修正：讓資料庫模型允許儲存 color 與 isEgg
   monsterSnapshot: {
     name: String,
+    color: { type: String, default: '#FFD54F' }, // 🎨 允許儲存皮膚顏色
+    isEgg: { type: Boolean, default: false },    // 🥚 允許儲存蛋的狀態
     emotionLabel: String,
     moodScore: Number,
     conversationCount: Number,
-    accessories: [String] // 穿戴的配件
-  },
-
-  // 互動數據
-  likes: {
-    type: [String], // 存入按讚使用者的 userId，防止重複按讚
-    default: []
-  },
-  comments: [commentSchema], // 巢狀留言板結構
-  
-  createdAt: {
-    type: Date,
-    default: Date.now
+    accessories: { type: mongoose.Schema.Types.Mixed, default: { head: null, face: null, body: null } }
   }
-});
+}, { timestamps: true });
 
 export default mongoose.model('Post', postSchema);
