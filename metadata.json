@@ -1,0 +1,6 @@
+{
+  "name": "Emo-Gotchi",
+  "description": "電子樹洞小怪獸 - 療癒系情緒分享與追蹤應用",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

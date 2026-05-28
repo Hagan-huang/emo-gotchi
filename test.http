@@ -1,0 +1,54 @@
+### 1. 測試註冊新帳號（會自動配發一隻小怪獸蛋）
+POST http://localhost:3001/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "hagan_test2",
+  "password": "mysecurepassword123"
+}
+
+
+### 2. 測試登入帳號（登入成功會連同小怪獸狀態一起吐出來）
+POST http://localhost:3001/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "hagan_test2",
+  "password": "mysecurepassword123"
+}
+
+### 3. 測試跟小怪獸聊天（帶上剛才 Hagan 的 userId 進行連動）
+POST http://localhost:3001/api/chat
+Content-Type: application/json
+
+{
+  "userId": "6a1694db7d4690f3cd609618",
+  "message": "今天微積分被當了，心情好差喔..."
+}
+
+### 4. 測試拉取或重置每日任務（帶上 Hagan 的 ID）
+GET http://localhost:3001/api/tasks/6a1694db7d4690f3cd609618
+
+### 5. 測試領取任務獎勵（在 chat_1 完成後戳這個）
+POST http://localhost:3001/api/tasks/6a1694db7d4690f3cd609618/claim
+Content-Type: application/json
+
+{
+  "taskId": "chat_1"
+}
+
+### 6. 測試發表社群貼文（會自動抓取 Hagan 剛才孵化的小怪獸快照）
+POST http://localhost:3001/api/community/posts
+Content-Type: application/json
+
+{
+  "userId": "6a1694db7d4690f3cd609618",
+  "story": "大家看！我的小怪獸今天終於破殼孵化了，超級感動的啦！😭"
+}
+
+
+### 7. 測試獲取公開照片牆（看有沒有剛剛發的文 + 檢查分頁效能）
+GET http://localhost:3001/api/community/posts?page=1&limit=5
+
+### 8. 測試專用時光機（把怪獸變老 3 天）
+POST http://localhost:3001/api/monster/6a1694db7d4690f3cd609618/time-travel
