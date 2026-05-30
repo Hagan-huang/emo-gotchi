@@ -32,8 +32,7 @@ const monsterSchema = new mongoose.Schema({
     default: 0 // 對話次數，累計到一定次數可以孵化
   },
   
-  // 🛠️ 【核心修正】強烈建議改成 Mixed（混合型別），並預留好手持道具（hand）的欄位！
-  // 這樣不論什麼自訂配件格式，MongoDB 通通都會張開雙臂無條件接受，再也不會裝不上去！
+  // 混合型別，完美支援 head, face, body, hand 四個插槽
   accessories: { 
     type: mongoose.Schema.Types.Mixed, 
     default: { head: null, face: null, body: null, hand: null } 
@@ -50,10 +49,9 @@ const monsterSchema = new mongoose.Schema({
   }
 });
 
-// 每次存檔時自動更新時間
-monsterSchema.pre('save', function(next) {
+// 🛠️ 核心修正：移除 next() 參數，避免在雲端拋出 next is not a function 錯誤
+monsterSchema.pre('save', function() {
   this.updatedAt = new Date();
-  next(); // 💡 加上 next() 確保 Mongoose 中介軟體順暢執行不卡死
 });
 
 export default mongoose.model('Monster', monsterSchema);
