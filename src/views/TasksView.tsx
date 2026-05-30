@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { mockGetTasks } from "../api/mock";
 import {
   Egg,
   CheckCircle2,
@@ -23,6 +22,7 @@ export function TasksView() {
     setTaskCooldownUntil,
     currentRewards,
     generateNewRewards,
+    userId, // 🛠️ 核心對接：引入雲端 userId
   } = useApp();
   const [isLoading, setIsLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState<number>(0);
@@ -51,7 +51,6 @@ export function TasksView() {
 
       const now = new Date();
       if (now.getDate() !== lastResetDay) {
-        // If there are completed tasks that haven't been claimed, DO NOT reset them
         const hasUnclaimedRewards =
           tasks.length > 0 && tasks.every((t) => t.completed);
 
@@ -66,7 +65,7 @@ export function TasksView() {
     return () => clearInterval(interval);
   }, [lastResetDay, setTasks, generateNewRewards, setTaskCooldownUntil, tasks]);
 
-  // Cooldown timer logic
+  // 任務冷卻計時器
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (taskCooldownUntil && taskCooldownUntil > Date.now()) {
@@ -76,8 +75,8 @@ export function TasksView() {
         if (remaining <= 0) {
           setTimeLeft(0);
           setTaskCooldownUntil(null);
-          setTasks([]); // clear old tasks
-          generateNewRewards(); // update rewards
+          setTasks([]); 
+          generateNewRewards(); 
         } else {
           setTimeLeft(remaining);
         }
@@ -93,99 +92,58 @@ export function TasksView() {
     taskCooldownUntil,
     setTaskCooldownUntil,
     setTasks,
-    tasks,
     generateNewRewards,
   ]);
 
-  // Fetch dynamic tasks
+  // 🛠️ 核心對接修正：從你的雲端 Render 後端拉取真正的每日任務資料！
   useEffect(() => {
-    if (monster.isEgg) {
+    if (monster.isEgg || !userId) {
       setIsLoading(false);
       return;
     }
 
-    const loadTasks = async () => {
-      // Don't fetch if still in cooldown
+    const loadTasksFromBackend = async () => {
+      // 處於冷卻時間則先不拉取
       if (taskCooldownUntil && taskCooldownUntil > Date.now()) {
-        setIsLoading(false);
-        return;
-      }
-
-      const expectedCount = monster.negativeValue <= 50 ? 3 : 5;
-
-      if (tasks.length > 0) {
-        if (tasks.length === expectedCount) {
-          setIsLoading(false);
-          return;
-        }
-
-        // Adjust task count
-        if (expectedCount < tasks.length) {
-          // We need to reduce tasks. Remove uncompleted from the end.
-          const uncompletedIndices = tasks
-            .map((t, i) => (!t.completed ? i : -1))
-            .filter((i) => i !== -1);
-          const numToRemove = Math.min(
-            tasks.length - expectedCount,
-            uncompletedIndices.length,
-          );
-
-          if (numToRemove > 0) {
-            const newTasks = [...tasks];
-            for (let i = 0; i < numToRemove; i++) {
-              newTasks.splice(
-                uncompletedIndices[uncompletedIndices.length - 1 - i],
-                1,
-              );
-            }
-            setTasks(newTasks);
-          }
-        } else {
-          // We need to add tasks.
-          setIsLoading(true);
-          try {
-            let fetched = await mockGetTasks(monster.negativeValue);
-            let toAdd = fetched.filter(
-              (f) => !tasks.some((t) => t.id === f.id),
-            );
-            let requestedAddCount = expectedCount - tasks.length;
-            setTasks([...tasks, ...toAdd.slice(0, requestedAddCount)]);
-          } catch (e) {}
-        }
         setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
       try {
-        const fetchedTasks = await mockGetTasks(monster.negativeValue);
-        setTasks(fetchedTasks);
+        // 串接後端真正的任務清單路由
+        const response = await fetch(`https://emo-gotchi.onrender.com/api/tasks/${userId}`);
+        const data = await response.json();
+
+        if (response.ok && data.tasks) {
+          // 將後端陣列格式結構化為前端任務清單
+          const formattedTasks = data.tasks.map((t: any) => ({
+            id: t.taskId,
+            title: t.description,
+            completed: t.isCompleted,
+            moodBenefit: 15, // 每完成一條固定改善 15% 的心情！
+          }));
+          setTasks(formattedTasks);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("雲端任務同步失敗：", err);
       } finally {
         setIsLoading(false);
       }
     };
-    loadTasks();
-  }, [
-    monster.negativeValue,
-    monster.isEgg,
-    setTasks,
-    taskCooldownUntil,
-    tasks.length,
-  ]);
+    loadTasksFromBackend();
+  }, [userId, monster.isEgg, setTasks, taskCooldownUntil]);
 
+  // 點擊完成單個任務
   const handleCompleteTask = (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Update tasks array
     const updatedTasks = tasks.map((t) =>
       t.id === taskId ? { ...t, completed: true } : t,
     );
     setTasks(updatedTasks);
 
-    // Decrease negativity based on moodBenefit
     setMonster((prev) => ({
       ...prev,
       negativeValue: Math.max(0, prev.negativeValue - task.moodBenefit),
@@ -193,7 +151,6 @@ export function TasksView() {
 
     showToast(`好棒！正面能量增強了！`, `心情改善 ${task.moodBenefit}%`);
 
-    // Check if ALL tasks are now complete
     const allCompleted = updatedTasks.every((t) => t.completed);
     if (allCompleted) {
       soundEffects.success();
@@ -202,13 +159,28 @@ export function TasksView() {
     }
   };
 
-  const handleClaimReward = () => {
+  // 🛠️ 核心對接修正：連動點擊領取驚喜大獎，並通知雲端 MongoDB 伺服器
+  const handleClaimReward = async () => {
     soundEffects.levelUp();
+    
+    // 1. 觸發前端發放隨機配飾（包含剛剛新增的 hand 飾品！）
     grantRandomAccessory();
     generateNewRewards();
-    setTaskCooldownUntil(Date.now() + 5 * 60 * 1000); // 5 minutes cooldown
+    setTaskCooldownUntil(Date.now() + 5 * 60 * 1000); // 5分鐘冷卻
     setTasks([]);
+
     showToast("太棒了！連續任務達成", "小怪獸獲得了隨機配飾獎勵！");
+
+    // 2. 將領獎紀錄即時同步拋送給雲端後端，扣除怪獸負面值並保存狀態
+    try {
+      await fetch(`https://emo-gotchi.onrender.com/api/tasks/${userId}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: "feed_monster" }), // 通用代發領取標籤
+      });
+    } catch (e) {
+      console.warn("後端獎勵領取紀錄未成功連通，僅前端保留。");
+    }
   };
 
   if (isLoading) {
@@ -219,7 +191,7 @@ export function TasksView() {
     );
   }
 
-  // --- Egg State Handle ---
+  // 蛋狀態處理
   if (monster.isEgg) {
     return (
       <div className="flex flex-col h-full items-center justify-center fade-in text-center space-y-6 px-6">
@@ -249,8 +221,6 @@ export function TasksView() {
 
   return (
     <div className="absolute inset-0 flex flex-col h-full fade-in space-y-4 max-w-5xl mx-auto w-full pb-24 pt-4 px-4 overflow-y-auto hidden-scrollbar">
-      {/* Top area for monster (Optional, we put a placeholder or scaled down MonsterAvatar here if needed, but since we don't have the room background, we'll just style the task container) */}
-
       <div className="bg-[#FFF8E7] border-4 border-[#5D4037] rounded-[2rem] shadow-[8px_8px_0px_#5D4037] flex flex-col p-6 relative flex-1">
         <div className="text-center mb-6">
           <h2 className="text-[26px] font-extrabold text-[#5D4037] mb-1 tracking-wider inline-flex items-center gap-2">
@@ -281,10 +251,10 @@ export function TasksView() {
           </div>
         ) : (
           <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
-            {/* Tasks Grid */}
+            {/* 任務排布網格 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-2/3 overflow-y-auto content-start pr-2">
               {tasks.map((task, index) => {
-                const icons = ["🌿", "📝", "🤚", "💧", "🖍️", "🌱", "🎵"];
+                const icons = ["🌿", "📝", "💬", "😋", "🖍️", "🌱", "🎵"];
                 const icon = icons[index % icons.length];
 
                 return (
@@ -336,7 +306,7 @@ export function TasksView() {
                         )}
                       </div>
                       <span className="text-xs font-bold mt-1">
-                        {task.completed ? "完成" : "完成"}
+                        {task.completed ? "完成" : "按我完成"}
                       </span>
                     </button>
                   </div>
@@ -344,7 +314,7 @@ export function TasksView() {
               })}
             </div>
 
-            {/* Reward Preview */}
+            {/* 獎勵預覽側邊欄 */}
             <div className="bg-white border-[4px] border-[#5D4037] rounded-[2rem] p-6 lg:w-1/3 flex flex-col items-center shadow-[4px_4px_0px_#5D4037] relative">
               <div className="bg-[#FFCC80] border-[4px] border-[#5D4037] rounded-full px-6 py-2 -mt-10 font-bold text-[#5D4037] shadow-[2px_2px_0px_#5D4037] absolute top-2">
                 獎勵預覽
@@ -355,7 +325,7 @@ export function TasksView() {
                     完成全部任務，即可獲得隨機配件獎勵！
                   </p>
                   <div className="flex gap-4 justify-center items-center mt-6 flex-wrap">
-                    {currentRewards.map((reward, i) => (
+                    {currentRewards && currentRewards.map((reward, i) => (
                       <div
                         key={i}
                         className="w-16 h-16 bg-[#FFF8E7] border-[3px] border-[#C7BBA2] rounded-xl flex items-center justify-center text-4xl shadow-inner hover:scale-110 transition-transform cursor-help"

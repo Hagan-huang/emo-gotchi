@@ -24,40 +24,54 @@ export function CommunityView() {
   const fetchPosts = useCallback(async () => {
     try {
       setIsLoading(true);
-      // ✅ 這裡之前在全域取代時，應該都已經對準你的 Render 網址了！
       const response = await fetch('https://emo-gotchi.onrender.com/api/community/posts?page=1&limit=20');
       const data = await response.json();
 
       // 將後端的資料格式，轉換成前端畫面上需要的格式
-      const formattedPosts: CommunityPost[] = data.posts.map((p: any) => ({
-        id: p._id,
-        authorAlias: p.username,
-        story: p.story,
-        likes: p.likes.length,
-        likedByMe: p.likes.includes(userId),
-        shares: 0,
-        comments: (p.comments || []).map((c: any) => ({
-          id: c._id,
-          authorAlias: c.username, 
-          content: c.content,
-          createdAt: new Date(c.createdAt).getTime()
-        })),
-        // 🔥【前端核心修正區塊】把後端快照的所有外觀狀態解鎖出來！
-        monster: {
-          isEgg: p.monsterSnapshot?.isEgg === true,
-          hatchTime: new Date(p.createdAt).getTime(), 
-          color: p.monsterSnapshot?.color || '#FFD54F', // 🎨 傳入皮膚顏色
-          negativeValue: p.monsterSnapshot?.moodScore !== undefined ? (100 - p.monsterSnapshot.moodScore) : 50,
-          emotionLabel: p.monsterSnapshot?.emotionLabel || '平靜',
-          daysOld: 1,
-          accessories: p.monsterSnapshot?.accessories || { head: null, face: null, body: null }, // 👑 傳入飾品
-          conversationCount: p.monsterSnapshot?.conversationCount || 0
-        },
-        createdAt: new Date(p.createdAt).getTime(),
-        isMyPost: p.userId === userId,
-        showStory: p.showStory,
-        showDaysOld: p.showDaysOld,
-      }));
+      const formattedPosts: CommunityPost[] = data.posts.map((p: any) => {
+        // 🛠️ 核心修正：抓取快照內的配件，並確保 head, face, body, hand 四個欄位在前端都有預設安全值
+        const snapshotAccessories = p.monsterSnapshot?.accessories || {};
+        const safeAccessories = {
+          head: snapshotAccessories.head || null,
+          face: snapshotAccessories.face || null,
+          body: snapshotAccessories.body || null,
+          hand: snapshotAccessories.hand || null, // 👈 這裡一定要塞入 hand 欄位對齊型別！
+        };
+
+        // 🛠️ 核心修正：終極破殼防護罩（對話滿 3 次或是有裝飾品，絕對不可能是蛋狀態）
+        const hasAnyAccessory = !!(safeAccessories.head || safeAccessories.face || safeAccessories.body || safeAccessories.hand);
+        const shouldBeHatched = (p.monsterSnapshot?.conversationCount >= 3) || hasAnyAccessory;
+        const finalIsEgg = shouldBeHatched ? false : (p.monsterSnapshot?.isEgg === true);
+
+        return {
+          id: p._id,
+          authorAlias: p.username,
+          story: p.story,
+          likes: p.likes.length,
+          likedByMe: p.likes.includes(userId),
+          shares: 0,
+          comments: (p.comments || []).map((c: any) => ({
+            id: c._id,
+            authorAlias: c.username, 
+            content: c.content,
+            createdAt: new Date(c.createdAt).getTime()
+          })),
+          monster: {
+            isEgg: finalIsEgg,
+            hatchTime: new Date(p.createdAt).getTime(), 
+            color: p.monsterSnapshot?.color || '#FFD54F', // 🎨 Skin Color
+            negativeValue: p.monsterSnapshot?.moodScore !== undefined ? (100 - p.monsterSnapshot.moodScore) : 50,
+            emotionLabel: p.monsterSnapshot?.emotionLabel || '平靜',
+            daysOld: 1,
+            accessories: safeAccessories, // 👑 完美對接 4 部位飾品快照
+            conversationCount: p.monsterSnapshot?.conversationCount || 0
+          },
+          createdAt: new Date(p.createdAt).getTime(),
+          isMyPost: p.userId === userId,
+          showStory: p.showStory,
+          showDaysOld: p.showDaysOld,
+        };
+      });
 
       setCommunityPosts(formattedPosts);
     } catch (error) {
@@ -346,7 +360,7 @@ export function CommunityView() {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {selectedPost.comments.length === 0 ? (
                 <div className="text-center text-[#AF8A63] font-bold mt-10">
-                  還沒有人留言，快來搶頭香吧！
+                  還擺沒有人留言，快來搶頭香吧！
                 </div>
               ) : (
                 selectedPost.comments.map((c) => (
@@ -411,7 +425,7 @@ export function CommunityView() {
             currentList.map((post) => (
               <div
                 key={post.id}
-                className="bg-[#FFF8E7] border-[4px] border-[4px] border-[#C7BBA2] rounded-[2rem] p-4 flex flex-col gap-3 shadow-none hover:-translate-y-1 transition-all group relative h-[250px]"
+                className="bg-[#FFF8E7] border-[4px] border-[#C7BBA2] rounded-[2rem] p-4 flex flex-col gap-3 shadow-none hover:-translate-y-1 transition-all group relative h-[250px]"
               >
                 {post.isMyPost && (
                   <button

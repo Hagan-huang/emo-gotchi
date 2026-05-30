@@ -56,16 +56,17 @@ export function DiaryView() {
     color: "#FFEAA7",
     emotionLabel: "未知",
     conversationCount: 0,
-    accessories: { head: null, face: null, body: null }
+    accessories: { head: null, face: null, body: null, hand: null }
   };
 
   const dateParts = selectedDiary?.dateRange?.split(" - ") || ["未知日期", "未知日期"];
 
-  // 🌸 計算這隻歷史怪獸解鎖了幾個配件
+  // 🌸 修正 1：計算這隻歷史怪獸解鎖了幾個配件（加入 hand 計入總數，總數上限升級為 4）
   const unlockedAccessoriesCount = [
     currentMonsterSnapshot.accessories?.head,
     currentMonsterSnapshot.accessories?.face,
-    currentMonsterSnapshot.accessories?.body
+    currentMonsterSnapshot.accessories?.body,
+    (currentMonsterSnapshot.accessories as any)?.hand // 👈 完美抓取手持道具
   ].filter(Boolean).length;
 
   // 🛡️ 智慧型動態感言生成器（防範任何欄位遺失或空值）
@@ -186,7 +187,6 @@ export function DiaryView() {
 
             {/* Right Page (Detailed Info) */}
             {selectedDiary && (
-              /* ✅ 【破案關鍵 1】將 h-full 加上 min-h-0 與 overflow-y-auto，解除右半邊容器硬塞高度不夠的詛咒，允許在小螢幕時自動卡片內滾動 */
               <div className={`transition-all duration-500 h-full min-h-0 flex flex-col pt-2 overflow-y-auto hidden-scrollbar px-1 sm:px-2 w-full md:flex-1 items-center justify-start ${isLeftExpanded ? "hidden md:flex" : "flex"}`}>
                 <div className="flex justify-center items-center shrink-0 mb-2 w-full relative">
                   <div className="absolute left-0">
@@ -199,7 +199,6 @@ export function DiaryView() {
                   </h3>
                 </div>
 
-                {/* ✅ 【破案關鍵 2】內層改成 min-h-0 與 pb-8，確保最下方的小語有絕對足夠的延伸呼吸區，不被截斷 */}
                 <div className="flex flex-col flex-1 w-full items-center justify-between gap-1 lg:gap-2 min-h-0 pb-8 mx-auto max-w-full">
                   <div className="w-full relative flex flex-col justify-start items-center shrink-0">
                     <span className="font-black text-[#5D4037] text-lg sm:text-xl border-b-[3px] border-dashed border-[#C7BBA2] pb-1 inline-block mb-1 sm:mb-2">
@@ -208,7 +207,7 @@ export function DiaryView() {
 
                     <div className="flex flex-row flex-wrap sm:flex-nowrap items-center justify-center w-full mt-2 lg:mt-3 gap-2 sm:gap-4 lg:gap-8 xl:gap-12 pl-2">
                       <div className="h-24 w-24 sm:h-28 sm:w-28 lg:h-32 lg:w-32 xl:h-36 xl:w-36 shrink-0 relative flex items-center justify-center">
-                        <div className="absolute inset-0 bg-white/70 border-[3px] border-dashed border-[#e2d8c3] rounded-full shadow-inner rotate-[-2deg]" />
+                        <div className="absolute inset-0 bg-white/70 border-[3px] border-[3px] border-dashed border-[#e2d8c3] rounded-full shadow-inner rotate-[-2deg]" />
                         <MonsterAvatar state={currentMonsterSnapshot} className="w-[110%] h-[110%] z-10" />
                       </div>
 
@@ -217,7 +216,8 @@ export function DiaryView() {
                           互動次數： <span className="font-black text-[#af8a63]">{currentMonsterSnapshot.conversationCount || 0}</span> 次
                         </div>
                         <div className="text-[#5D4037] font-bold text-sm lg:text-base bg-white/60 px-3 py-1.5 rounded-xl border-[2px] border-transparent shadow-sm">
-                          解鎖配件： <span className="font-black text-[#af8a63]">{unlockedAccessoriesCount}/3</span>
+                          {/* 修正：上限擴充顯示為 /4 */}
+                          解鎖配件： <span className="font-black text-[#af8a63]">{unlockedAccessoriesCount}/4</span>
                         </div>
                         <div className="text-[#5D4037] flex items-center gap-1 font-bold text-sm lg:text-base bg-[#FFD54F]/20 px-3 py-1.5 rounded-xl border-[2px] border-transparent shadow-sm">
                           成長等級： <span className="font-black text-[#E65100]">LV. {Math.floor((currentMonsterSnapshot.conversationCount || 0) / 3) + 1}</span>
@@ -265,13 +265,15 @@ export function DiaryView() {
                         攜帶配件
                       </span>
                       <div className="flex flex-row flex-wrap items-center justify-center gap-2 lg:gap-3 mt-1">
+                        {/* 🛠️ 修正 2：在攜帶配件陣列中，完美補上手持道具 "hand" 的格子 */}
                         {[
                           { part: "head", acc: currentMonsterSnapshot.accessories?.head },
                           { part: "face", acc: currentMonsterSnapshot.accessories?.face },
                           { part: "body", acc: currentMonsterSnapshot.accessories?.body },
+                          { part: "hand", acc: (currentMonsterSnapshot.accessories as any)?.hand }, // 👈 補上這個新部位
                         ].map((item, idx) => (
-                          <div key={idx} className="w-[2.6rem] h-[2.6rem] lg:w-[3.0rem] lg:h-[3.0rem] bg-white/60 border-[2px] border-[#e2d8c3] rounded-2xl flex items-center justify-center text-xl shadow-sm transition-all shrink-0" title={item.acc?.name || "此部位無配件"}>
-                            {item.acc ? item.acc.icon : <span className="opacity-20 text-xs sm:text-sm font-black text-[#5D4037]">?</span>}
+                          <div key={idx} className="w-[2.4rem] h-[2.4rem] lg:w-[2.8rem] lg:h-[2.8rem] bg-white/60 border-[2px] border-[#e2d8c3] rounded-2xl flex items-center justify-center text-xl shadow-sm transition-all shrink-0" title={item.acc?.name || "此部位無配件"}>
+                            {item.acc ? item.acc.icon : <span className="opacity-20 text-xs font-black text-[#5D4037]">?</span>}
                           </div>
                         ))}
                       </div>

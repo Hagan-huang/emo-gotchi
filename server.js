@@ -5,13 +5,13 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import dns from 'dns';
 import bcrypt from 'bcryptjs';
-import Diary from './models/Diary.js'; // 👈 補上這行
+import Diary from './models/Diary.js'; 
 
 // 引入所有資料庫模型
 import User from './models/User.js';
 import Monster from './models/Monster.js';
 import Task from './models/Task.js';
-import Post from './models/Post.js'; // 👈 引入新模型
+import Post from './models/Post.js'; 
 
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 dotenv.config();
@@ -112,7 +112,13 @@ app.post('/api/auth/register', async (req, res) => {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
 
-    const newMonster = new Monster({ userId: newUser._id, name: '神祕的蛋', isEgg: true });
+    // 🥚 催生初始蛋：預留安全手持配件槽
+    const newMonster = new Monster({ 
+      userId: newUser._id, 
+      name: '神祕的蛋', 
+      isEgg: true,
+      accessories: { head: null, face: null, body: null, hand: null }
+    });
     await newMonster.save();
 
     res.status(201).json({ message: '註冊成功！', userId: newUser._id });
@@ -121,7 +127,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// 【登入帳號】 (這是你原本寫的)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -132,7 +137,10 @@ app.post('/api/auth/login', async (req, res) => {
 
     let monster = await Monster.findOne({ userId: user._id, isReleased: false });
     if (!monster) {
-      monster = new Monster({ userId: user._id });
+      monster = new Monster({ 
+        userId: user._id,
+        accessories: { head: null, face: null, body: null, hand: null }
+      });
       await monster.save();
     }
     res.json({ message: `歡迎回來！`, user: { id: user._id, username: user.username }, monster });
@@ -149,16 +157,12 @@ app.post('/api/auth/reset-password', async (req, res) => {
       return res.status(400).json({ message: '請輸入帳號與新密碼！' });
     }
 
-    // 1. 尋找是否存在該用戶
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(404).json({ message: '找不到該帳號，請確認是否輸入正確！' });
     }
 
-    // 2. 將新密碼進行 Bcrypt 加密
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    // 3. 更新資料庫中的密碼
     user.password = hashedPassword;
     await user.save();
 
@@ -169,9 +173,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
   }
 });
 
-// ==========================================
-// 👇 這是我們剛剛新增的：為了治好網頁 F5 重新整理失憶症
-// ==========================================
 app.get('/api/monster/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -192,7 +193,6 @@ app.get('/api/monster/:userId', async (req, res) => {
 // 5. 社群照片牆與互動 (Community Features)
 // ==========================================
 
-// 【API ①】發布貼文（附帶當下怪獸外觀快照）
 app.post('/api/community/posts', async (req, res) => {
   try {
     const { userId, story, showStory, showDaysOld } = req.body;
@@ -203,7 +203,7 @@ app.post('/api/community/posts', async (req, res) => {
       return res.status(404).json({ message: '找不到使用者或活著的小怪獸，無法發文！' });
     }
 
-    // 🔥 完美進化版：連同皮膚、蛋狀態、以及所有飾品（頭、臉、體）一起拍下快照
+    // 🛠️ 檢查點：貼文快照直接同步繼承 monster.accessories，手持道具完美合流
     const monsterSnapshot = {
       name: monster.name,
       color: monster.color || '#FFD54F',
@@ -211,8 +211,7 @@ app.post('/api/community/posts', async (req, res) => {
       emotionLabel: monster.emotionLabel,
       moodScore: monster.moodScore,
       conversationCount: monster.conversationCount,
-      // 👇 確保完整捕捉物件，若無則給予預設空飾品結構
-      accessories: monster.accessories || { head: null, face: null, body: null }
+      accessories: monster.accessories || { head: null, face: null, body: null, hand: null }
     };
 
     const newPost = new Post({
@@ -232,15 +231,12 @@ app.post('/api/community/posts', async (req, res) => {
   }
 });
 
-// 【API ②】獲取公開照片牆（實作 Pagination 分頁優化效能）
 app.get('/api/community/posts', async (req, res) => {
   try {
-    // 預設第 1 頁，每頁 5 筆資料
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 5;
     const skipIndex = (page - 1) * limit;
 
-    // 依照時間最新到最舊排序 (createdAt: -1)
     const posts = await Post.find()
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -254,18 +250,15 @@ app.get('/api/community/posts', async (req, res) => {
       totalPosts,
       posts
     });
-
   } catch (error) {
     res.status(500).json({ message: '撈取社群貼文失敗' });
   }
 });
 
-// 【API ③】貼文按讚機制（二合一：沒讚過就按讚，讚過就收回）
-// 【API ③】貼文按讚機制（二合一：沒讚過就按讚，讚過就收回）
 app.post('/api/community/posts/:postId/like', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { userId } = req.body; // 知道是誰按的
+    const { userId } = req.body;
 
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: '找不到這篇貼文！' });
@@ -281,19 +274,15 @@ app.post('/api/community/posts/:postId/like', async (req, res) => {
       await post.save();
       res.json({ message: '↩️ 已收回讚', likesCount: post.likes.length, isLiked: false });
     }
-
   } catch (error) {
     res.status(500).json({ message: '按讚處理失敗' });
   }
 });
 
-// ==========================================
-// 👇 這是你要貼上的新東西：貼文留言機制
-// ==========================================
 app.post('/api/community/posts/:postId/comment', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { username, content } = req.body; // 接收是誰留言、留言內容
+    const { username, content } = req.body; 
 
     if (!content || !content.trim()) {
       return res.status(400).json({ message: '留言內容不能留空喔！' });
@@ -302,7 +291,6 @@ app.post('/api/community/posts/:postId/comment', async (req, res) => {
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: '找不到這篇貼文！' });
 
-    // 建立新留言結構，推入貼文的 comments 陣列中
     const newComment = {
       username: username || "神祕怪獸",
       content: content.trim(),
@@ -312,7 +300,6 @@ app.post('/api/community/posts/:postId/comment', async (req, res) => {
     post.comments.push(newComment);
     await post.save();
 
-    // 為了配合前端名稱，將資料庫格式轉換成前端需要的欄位格式
     const formattedComments = post.comments.map(c => ({
       id: c._id,
       authorAlias: c.username,
@@ -321,7 +308,6 @@ app.post('/api/community/posts/:postId/comment', async (req, res) => {
     }));
 
     res.status(201).json({ message: '💬 留言成功發表！', comments: formattedComments });
-
   } catch (error) {
     console.error('留言失敗：', error);
     res.status(500).json({ message: '留言處理失敗' });
@@ -331,20 +317,17 @@ app.post('/api/community/posts/:postId/comment', async (req, res) => {
 app.delete('/api/community/posts/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const { userId } = req.body; // 接收是誰發出的刪除請求
+    const { userId } = req.body; 
 
     const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: '找不到這篇貼文！' });
 
-    // 防護罩：檢查這篇貼文的主人是不是發出請求的這個人
     if (post.userId.toString() !== userId) {
       return res.status(403).json({ message: '你沒有權限刪除這篇貼文喔！' });
     }
 
-    // 驗證通過，從資料庫徹底刪除
     await Post.findByIdAndDelete(postId);
     res.json({ message: '🗑️ 貼文已徹底刪除！' });
-
   } catch (error) {
     console.error('刪除貼文失敗：', error);
     res.status(500).json({ message: '刪除貼文失敗，伺服器出錯' });
@@ -359,9 +342,6 @@ app.get('/api/ping', (req, res) => {
   res.json({ message: '太棒了！後端伺服器成功運作中！' });
 });
 
-// ==========================================
-// 🧠 【終極完全體】AI 聊天路由（內建 API 額度超限自動降級保護罩）
-// ==========================================
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, userId } = req.body;
@@ -386,7 +366,7 @@ app.post('/api/chat', async (req, res) => {
             "extracted_accessories": []
           },
           "image_ai_prompt": "A cute round monster with long legs...",
-          "monster_response": "用溫暖、同理心的語氣回應一句話"
+          "monster_response": "用溫慢、同理心的語氣回應一句話"
         },
         "mapped_accessory": null
       }
@@ -395,7 +375,6 @@ app.post('/api/chat', async (req, res) => {
     let resultJson;
 
     try {
-      // 嘗試呼叫真實的 Gemini AI 大腦
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
@@ -406,7 +385,6 @@ app.post('/api/chat', async (req, res) => {
       console.log('✨ Gemini AI 正常響應！內容：', resultJson.llm_data.monster_response);
 
     } catch (aiError) {
-      // 🛡️ 【金牌金鐘罩】如果 Gemini 額度乾了(429)或斷網，立刻啟動在地守護神大腦，絕不卡死前端！
       console.warn('⚠️ 偵測到 Gemini API 額度超限或異常，自動啟動「在地模擬大腦」繼續通關！');
       
       resultJson = {
@@ -414,11 +392,11 @@ app.post('/api/chat', async (req, res) => {
           "emotion_analysis": {
             "primary": "溫暖", 
             "intensity": 5, 
-            "mood_delta": 20, // 故意給高一點，讓你聊兩句就能觸發破殼！
+            "mood_delta": 20, 
             "diary_summary": `用戶分享了心情：${message}`
           },
           "visual_commands": {
-            "base_color": "#FFD54F", // 固定給一個可愛的怪獸黃色
+            "base_color": "#FFD54F", 
             "added_features": [],
             "extracted_accessories": []
           },
@@ -429,9 +407,6 @@ app.post('/api/chat', async (req, res) => {
       };
     }
 
-    // ==========================================
-    // 💾 以下資料庫儲存核心邏輯（不論 AI 有沒有躺平，通通照常完美執行！）
-    // ==========================================
     if (userId) {
       const monster = await Monster.findOne({ userId, isReleased: false });
       if (monster) {
@@ -440,7 +415,6 @@ app.post('/api/chat', async (req, res) => {
         monster.moodScore = Math.max(0, Math.min(100, monster.moodScore + delta));
         monster.emotionLabel = resultJson.llm_data.emotion_analysis.primary || '平靜';
 
-        // 聊天滿 3 次就幫牠自動破殼！
         if (monster.isEgg && monster.conversationCount >= 3) {
           monster.isEgg = false;
           monster.name = '初生的小怪獸';
@@ -448,7 +422,6 @@ app.post('/api/chat', async (req, res) => {
         }
         await monster.save();
 
-        // 每日任務計數連動
         const todayStr = getTaiwanDateString();
         const userTaskDoc = await Task.findOne({ userId, lastUpdatedDate: todayStr });
         if (userTaskDoc) {
@@ -462,12 +435,10 @@ app.post('/api/chat', async (req, res) => {
           });
           await userTaskDoc.save();
         }
-        // 將最新變更後的怪獸狀態塞回回傳包中
         resultJson.updatedMonsterState = monster;
       }
     }
     
-    // 順暢吐回給前端
     res.json(resultJson);
 
   } catch (error) {
@@ -476,11 +447,9 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// 【API ⑥】獲取某用戶的所有歷史心情日記
 app.get('/api/diary/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    // 依照時間由新到舊排序
     const diaries = await Diary.find({ userId }).sort({ createdAt: -1 });
     res.json(diaries);
   } catch (error) {
@@ -494,39 +463,34 @@ app.get('/api/diary/:userId', async (req, res) => {
 app.post('/api/diary/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { monsterSnapshot } = req.body; // 拿到前端放生時的怪獸完整快照
+    const { monsterSnapshot } = req.body; 
 
     if (!monsterSnapshot) {
       return res.status(400).json({ message: '放生失敗，缺少怪獸快照資料！' });
     }
 
-    // 1. 撈出這個用戶目前在玩、且還沒放生的那隻怪獸
     const activeMonster = await Monster.findOne({ userId, isReleased: false });
     if (!activeMonster) {
       return res.status(404).json({ message: '找不到可以放生歸檔的小怪獸！' });
     }
 
-    // 2. 計算陪伴天數區間
     const hatchDate = activeMonster.hatchTime ? new Date(activeMonster.hatchTime) : new Date();
     const today = new Date();
     const formatDate = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
     const dateRangeStr = `${formatDate(hatchDate)} - ${formatDate(today)}`;
 
-    // 3. 計算情緒比例 (正向與負向分數)
     const currentMoodScore = activeMonster.moodScore || 50; 
     const emotionsStatsArray = [
-      { name: '正面情緒', value: currentMoodScore, color: '#FFD54F' }, // 黃色代表正面
-      { name: '負面情緒', value: 100 - currentMoodScore, color: '#90A4AE' } // 灰色代表負面
+      { name: '正面情緒', value: currentMoodScore, color: '#FFD54F' }, 
+      { name: '負面情緒', value: 100 - currentMoodScore, color: '#90A4AE' } 
     ];
 
-    // 4. 🔥【核心修正】精準捕捉專屬小語！
-    // 優先從前端快照或後端欄位抓取，如果都沒有，則根據怪獸目前的心情狀態，由後端現場為牠量身手寫一句感言！
     let finalFeedback = monsterSnapshot.feedback || activeMonster.feedback || "";
 
     if (!finalFeedback || finalFeedback.trim() === "") {
       const mood = activeMonster.emotionLabel || "平靜";
       if (currentMoodScore >= 70) {
-        finalFeedback = `【${mood}的小怪獸】留在回憶裡的話：\n謝謝你這幾天帶給我這麼多快樂和正面能量！待在你身邊的每一天都像在探險，你開心的笑容是我最珍貴的寶藏。以後也要常常保持微笑喔！`;
+        finalFeedback = `【${mood}的小怪獸】留在回憶裡的話：\n謝謝你這幾天帶給我這麼多快樂和正面能量！待在你身邊的每一天都像在探險，你開心的笑容是我最珍規的寶藏。以後也要常常保持微笑喔！`;
       } else if (currentMoodScore <= 35) {
         finalFeedback = `【${mood}的小怪獸】留在回憶裡的話：\n這幾天看你過得有點累、有點悶，我也跟著好心疼...。不過沒關係，我把你的煩惱和淚水通通吃進肚子裡帶走囉！累了就好好休息，你已經非常努力了！`;
       } else {
@@ -534,7 +498,7 @@ app.post('/api/diary/:userId', async (req, res) => {
       }
     }
 
-    // 5. 正式新建心情日記存入 MongoDB
+    // 🛠️ 檢查點：放生留存的心情日記 finalMonster，完美納入手持道具欄位
     const newDiary = new Diary({
       userId,
       dateRange: dateRangeStr,
@@ -545,18 +509,17 @@ app.post('/api/diary/:userId', async (req, res) => {
         color: activeMonster.color || '#FFD54F',
         emotionLabel: activeMonster.emotionLabel || '平靜',
         conversationCount: activeMonster.conversationCount || 0,
-        accessories: activeMonster.accessories || { head: null, face: null, body: null }
+        accessories: activeMonster.accessories || { head: null, face: null, body: null, hand: null } // 👈 這裡補上 hand
       },
-      feedback: finalFeedback // 寫入精準感言
+      feedback: finalFeedback 
     });
 
     await newDiary.save();
 
-    // 6. 轉生連動：把舊怪獸標記為已放生 (isReleased: true)
     activeMonster.isReleased = true;
     await activeMonster.save();
 
-    // 7. 在資料庫裡直接幫該用戶催生一顆全新的「下一代怪獸蛋」
+    // 🛠️ 檢查點：催生下一代蛋時，也幫牠預留好乾淨的 4 部位結構
     const newMonsterEgg = new Monster({
       userId,
       isEgg: true,
@@ -565,11 +528,10 @@ app.post('/api/diary/:userId', async (req, res) => {
       emotionLabel: '未知',
       conversationCount: 0,
       color: '#FFEAA7',
-      accessories: { head: null, face: null, body: null }
+      accessories: { head: null, face: null, body: null, hand: null } // 👈 這裡補上 hand
     });
     await newMonsterEgg.save();
 
-    // 順暢回傳給網頁前端
     res.json({
       message: '🎉 小怪獸順利歸檔至回憶日記！',
       newDiary,
@@ -585,8 +547,6 @@ app.post('/api/diary/:userId', async (req, res) => {
 app.post('/api/monster/:userId/update', async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // 🔥 【核心修正】這裡要記得把前端傳來的 color 和 accessories 拿出來！
     const { isEgg, hatchTime, negativeValue, emotionLabel, conversationCount, color, accessories } = req.body;
 
     const monster = await Monster.findOne({ userId, isReleased: false });
@@ -594,15 +554,14 @@ app.post('/api/monster/:userId/update', async (req, res) => {
 
     if (isEgg !== undefined) monster.isEgg = isEgg;
     if (hatchTime !== undefined) monster.hatchTime = hatchTime;
-    if (negativeValue !== undefined) monster.moodScore = 100 - negativeValue; // 前後端正負轉向
+    if (negativeValue !== undefined) monster.moodScore = 100 - negativeValue; 
     if (emotionLabel !== undefined) monster.emotionLabel = emotionLabel;
     if (conversationCount !== undefined) monster.conversationCount = conversationCount;
 
-    // 🔥 【核心修正】把最新變化的外觀顏色與穿戴配件寫入資料庫！
     if (color !== undefined) monster.color = color;
     if (accessories !== undefined) {
       monster.accessories = accessories;
-      monster.markModified('accessories'); // 告訴 Mongoose 這個複雜物件被修改了，強制更新
+      monster.markModified('accessories'); 
     }
 
     await monster.save();
@@ -615,7 +574,7 @@ app.post('/api/monster/:userId/update', async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`伺服器已經在 http://localhost:${port} 啟動囉！`);
+  console.log(`伺服器已經在 http://localhost:${port} 启动囉！`);
 });
 
 app.post('/api/monster/:userId/time-travel', async (req, res) => {
@@ -626,13 +585,11 @@ app.post('/api/monster/:userId/time-travel', async (req, res) => {
     if (!monster) return res.status(404).json({ message: '找不到活著的小怪獸！' });
     if (monster.isEgg) return res.status(400).json({ message: '牠還是一顆蛋，無法穿越時光！請先聊天孵化牠。' });
 
-    // 核心魔法：把這隻怪獸的孵化時間，強制設定為 3 天前！
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
     monster.hatchTime = threeDaysAgo;
     
     await monster.save();
     res.json({ message: '⏳ 時光機發動成功！小怪獸瞬間老了 3 天！', monster });
-    
   } catch (error) {
     res.status(500).json({ message: '時光機故障' });
   }

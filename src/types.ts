@@ -1,4 +1,5 @@
-export type AccessoryPart = "head" | "face" | "body";
+// 🛠️ 修正 1：擴充配件部位，加入手持道具 "hand"
+export type AccessoryPart = "head" | "face" | "body" | "hand";
 
 export interface Accessory {
   part: AccessoryPart;
@@ -13,6 +14,7 @@ export interface MonsterState {
   negativeValue: number; // 0 to 100, 50 is neutral
   color: string;
   emotionLabel: string;
+  // 💡 這裡會自動套用升級後的 AccessoryPart，同時支援 4 個部位！
   accessories: Record<AccessoryPart, Accessory | null>;
   daysOld: number;
   conversationCount: number;

@@ -14,6 +14,7 @@ export function MonsterAvatar({
   isInteractive = false,
   onInteract,
 }: MonsterProps) {
+  // 🛠️ 核心修正 1：從 state 完美解構出全新加入的 hand（手持道具）部位
   const { color, emotionLabel, accessories, negativeValue, isEgg } = state;
 
   // 決定表情變化
@@ -225,7 +226,7 @@ export function MonsterAvatar({
           </g>
         )}
 
-        {/* === 位於身體前方的配飾 (Face and Head Accessories) === */}
+        {/* === 位於身體前方的配飾 (Face, Head and Hand Accessories) === */}
         {/* 2. 臉部配飾 */}
         {!isEgg && accessories.face && (
           <text
@@ -251,6 +252,24 @@ export function MonsterAvatar({
             className="animate-bounce-slow pointer-events-none drop-shadow-md"
           >
             {accessories.head.icon}
+          </text>
+        )}
+
+        {/* 🛠️ 核心修正 2：在 SVG 世界中，幫小怪獸開闢右下角的「手持道具 (hand)」圖層定位！ */}
+        {!isEgg && (accessories as any).hand && (
+          <text
+            x="185" // 靠近小怪獸右手邊的位置
+            y="145" // 身體右下方的位置
+            fontSize="55"
+            textAnchor="middle"
+            dominantBaseline="central"
+            style={{
+              transformOrigin: "185px 145px",
+              transform: "rotate(10deg)", // 讓珍奶或光劍歪歪的看起來更動感可愛
+            }}
+            className="pointer-events-none drop-shadow-lg animate-bounce-slow"
+          >
+            {(accessories as any).hand.icon}
           </text>
         )}
       </svg>

@@ -6,7 +6,7 @@ import { SendHorizontal, Loader2 } from "lucide-react";
 import { soundEffects } from "../utils/audio";
 
 export function HomeView() {
-  // ✅ 修正 1：把 userId 解構拿出來
+  // ✅ 把 userId 與完整的配戴/同步功能解構拿出來
   const { monster, setMonster, showToast, equipAccessory, syncMonsterToServer, userId } = useApp();
   const [inputValue, setInputValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -28,13 +28,13 @@ export function HomeView() {
     soundEffects.pop();
 
     try {
-      // 👇 完美對接：這裡已成功替換成你的正式雲端後端網址
+      // 完美對接：對準正式雲端後端網址
       const fetchResult = await fetch('https://emo-gotchi.onrender.com/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        // ✅ 修正 2：在這裡把 userId 正式打包打包送給後端！
+        // 在這裡把 userId 正式打包送給後端
         body: JSON.stringify({ message: userMessage, userId }), 
       });
 
@@ -47,7 +47,8 @@ export function HomeView() {
       const wasEgg = monster.isEgg;
       const { llm_data, mapped_accessory } = response;
 
-      const delta = llm_data.emotion_analysis.mood_delta;
+      // 計算情緒數值：後端傳回的是 mood_delta，前端需要更新代表負面值比例的 negativeValue
+      const delta = llm_data.emotion_analysis.mood_delta || 0;
       const newNegative = Math.min(
         100,
         Math.max(0, monster.negativeValue - delta),
@@ -55,14 +56,19 @@ export function HomeView() {
 
       const nowHatchTime = monster.isEgg ? Date.now() : monster.hatchTime;
 
+      // 🛠️ 核心修正：如果後端有回傳最新完整的怪獸狀態，我們優先繼承它（這樣手持道具 hand 的更新才不會被前端舊狀態蓋掉）
+      const backendMonsterState = response.updatedMonsterState;
+
       const nextMonsterState = {
         ...monster,
-        isEgg: false, 
+        isEgg: backendMonsterState?.isEgg !== undefined ? backendMonsterState.isEgg : false, 
         hatchTime: nowHatchTime,
-        color: llm_data.visual_commands.base_color,
-        emotionLabel: llm_data.emotion_analysis.primary,
-        negativeValue: newNegative,
-        conversationCount: monster.conversationCount + 1,
+        color: llm_data.visual_commands.base_color || monster.color,
+        emotionLabel: llm_data.emotion_analysis.primary || monster.emotionLabel,
+        negativeValue: backendMonsterState?.moodScore !== undefined ? (100 - backendMonsterState.moodScore) : newNegative,
+        conversationCount: backendMonsterState?.conversationCount || (monster.conversationCount + 1),
+        // 確保 4 個部位（含 hand）的配件物件在前端狀態中被完好保留
+        accessories: backendMonsterState?.accessories || monster.accessories,
       };
 
       setMonster(nextMonsterState);
@@ -70,13 +76,14 @@ export function HomeView() {
 
       setLastMessage(llm_data.monster_response);
 
-      if (wasEgg) {
+      if (wasEgg && !nextMonsterState.isEgg) {
         soundEffects.levelUp();
         showToast("小怪獸孵化了！", "根據你的情緒，誕生了專屬的小怪獸 ✨");
       } else {
         soundEffects.success();
       }
 
+      // 如果 AI 聊天觸發了隨機配件獎勵（不論是頭、臉、身體還是手持道具），直接幫牠裝上！
       if (mapped_accessory) {
         equipAccessory(mapped_accessory);
       }
@@ -152,8 +159,8 @@ export function HomeView() {
           <button
             type="submit"
             disabled={isSubmitting || !inputValue.trim()}
-            aria-label="送出訊息" // 👈 新增這行：供螢幕閱讀器辨識
-            title="送出訊息"     // 👈 新增這行：滑鼠懸停時會顯示小提示，同時滿足 Edge 檢查
+            aria-label="送出訊息" 
+            title="送出訊息"     
             className="w-[60px] h-[60px] shrink-0 bg-[#FFD54F] border-[4px] border-[#5D4037] rounded-2xl flex items-center justify-center text-[#5D4037] transition-all hover:bg-[#FFE082] active:translate-y-1 disabled:opacity-50"
           >
             <SendHorizontal size={26} strokeWidth={3} className="-ml-0.5 mt-0.5" />
