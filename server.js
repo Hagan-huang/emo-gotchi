@@ -28,6 +28,17 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // ==========================================
+// 根目錄路由 (治好 Cannot GET /)
+// ==========================================
+app.get('/', (req, res) => {
+  res.json({ 
+    status: "online", 
+    message: "🎉 歡迎來到小怪獸的情緒太空總署後端！伺服器運作完美！",
+    time: new Date()
+  });
+});
+
+// ==========================================
 // 4. 每日任務引擎 (Daily Quests Engine)
 // ==========================================
 function getTaiwanDateString() {
@@ -113,9 +124,6 @@ app.post('/api/auth/register', async (req, res) => {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
 
-    // 💡【安全通關修正】先不要在程式碼裡手寫複雜的物件結構，直接給予最基本的欄位！
-    // 讓 MongoDB 依照我們在 models/Monster.js 設定好的 default 預設值去自動生成結構
-    // 這樣可以 100% 規避因為新舊格式打架導致的存檔失敗！
     const newMonster = new Monster({ 
       userId: newUser._id, 
       name: '神祕的蛋', 
@@ -126,7 +134,6 @@ app.post('/api/auth/register', async (req, res) => {
     console.log(`🎉 用戶 ${username} 註冊成功，並已成功催生初始怪獸蛋！`);
     res.status(201).json({ message: '註冊成功！', userId: newUser._id });
   } catch (error) {
-    // 🕵️ 如果真的不幸又失敗，這行會在 Render 的 Logs 裡印出最真實殘酷的死因！
     console.error('❌ 雲端註冊機制發生核心爆炸，原因：', error);
     res.status(500).json({ message: '註冊失敗，伺服器存檔發生異常' });
   }
@@ -197,7 +204,6 @@ app.get('/api/monster/:userId', async (req, res) => {
 // ==========================================
 // 5. 社群照片牆與互動 (Community Features)
 // ==========================================
-
 app.post('/api/community/posts', async (req, res) => {
   try {
     const { userId, story, showStory, showDaysOld } = req.body;
@@ -208,7 +214,6 @@ app.post('/api/community/posts', async (req, res) => {
       return res.status(404).json({ message: '找不到使用者或活著的小怪獸，無法發文！' });
     }
 
-    // 🛠️ 檢查點：貼文快照直接同步繼承 monster.accessories，手持道具完美合流
     const monsterSnapshot = {
       name: monster.name,
       color: monster.color || '#FFD54F',
@@ -343,10 +348,6 @@ app.delete('/api/community/posts/:postId', async (req, res) => {
 // ==========================================
 // 3. AI 大語言模型對接 (/api/chat)
 // ==========================================
-app.get('/api/ping', (req, res) => {
-  res.json({ message: '太棒了！後端伺服器成功運作中！' });
-});
-
 app.post('/api/chat', async (req, res) => {
   try {
     const { message, userId } = req.body;
@@ -371,7 +372,7 @@ app.post('/api/chat', async (req, res) => {
             "extracted_accessories": []
           },
           "image_ai_prompt": "A cute round monster with long legs...",
-          "monster_response": "用溫慢、同理心的語氣回應一句話"
+          "monster_response": "用溫柔、同理心的語氣回應一句話"
         },
         "mapped_accessory": null
       }
@@ -395,7 +396,7 @@ app.post('/api/chat', async (req, res) => {
       resultJson = {
         "llm_data": {
           "emotion_analysis": {
-            "primary": "溫暖", 
+            "primary": "溫慢", 
             "intensity": 5, 
             "mood_delta": 20, 
             "diary_summary": `用戶分享了心情：${message}`
@@ -417,7 +418,9 @@ app.post('/api/chat', async (req, res) => {
       if (monster) {
         monster.conversationCount += 1;
         const delta = resultJson.llm_data.emotion_analysis.mood_delta || 0;
-        monster.moodScore = Math.max(0, Math.min(100, monster.moodScore + delta));
+        
+        // 🛠️ 核心防禦：確保計算出的 moodScore 絕對是一個安全的 0~100 有效整數數字
+        monster.moodScore = Math.max(0, Math.min(100, (monster.moodScore || 50) + delta));
         monster.emotionLabel = resultJson.llm_data.emotion_analysis.primary || '平靜';
 
         if (monster.isEgg && monster.conversationCount >= 3) {
@@ -503,7 +506,6 @@ app.post('/api/diary/:userId', async (req, res) => {
       }
     }
 
-    // 🛠️ 檢查點：放生留存的心情日記 finalMonster，完美納入手持道具欄位
     const newDiary = new Diary({
       userId,
       dateRange: dateRangeStr,
@@ -514,7 +516,7 @@ app.post('/api/diary/:userId', async (req, res) => {
         color: activeMonster.color || '#FFD54F',
         emotionLabel: activeMonster.emotionLabel || '平靜',
         conversationCount: activeMonster.conversationCount || 0,
-        accessories: activeMonster.accessories || { head: null, face: null, body: null, hand: null } // 👈 這裡補上 hand
+        accessories: activeMonster.accessories || { head: null, face: null, body: null, hand: null } 
       },
       feedback: finalFeedback 
     });
@@ -524,7 +526,6 @@ app.post('/api/diary/:userId', async (req, res) => {
     activeMonster.isReleased = true;
     await activeMonster.save();
 
-    // 🛠️ 檢查點：催生下一代蛋時，也幫牠預留好乾淨的 4 部位結構
     const newMonsterEgg = new Monster({
       userId,
       isEgg: true,
@@ -533,7 +534,7 @@ app.post('/api/diary/:userId', async (req, res) => {
       emotionLabel: '未知',
       conversationCount: 0,
       color: '#FFEAA7',
-      accessories: { head: null, face: null, body: null, hand: null } // 👈 這裡補上 hand
+      accessories: { head: null, face: null, body: null, hand: null } 
     });
     await newMonsterEgg.save();
 
@@ -549,6 +550,9 @@ app.post('/api/diary/:userId', async (req, res) => {
   }
 });
 
+// ==========================================
+// 💾 【更新同步 API】強壯轉型版，徹底斬斷蛋形化退化 Bug
+// ==========================================
 app.post('/api/monster/:userId/update', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -557,11 +561,22 @@ app.post('/api/monster/:userId/update', async (req, res) => {
     const monster = await Monster.findOne({ userId, isReleased: false });
     if (!monster) return res.status(404).json({ message: '找不到可以同步的小怪獸！' });
 
-    if (isEgg !== undefined) monster.isEgg = isEgg;
+    // 🛠️ 核心防禦：如果對話次數已經 >= 3，就不准再被蓋回 true！
+    if (conversationCount !== undefined && !isNaN(conversationCount)) {
+      monster.conversationCount = Number(conversationCount);
+    }
+
+    if (isEgg !== undefined) {
+      monster.isEgg = monster.conversationCount >= 3 ? false : isEgg;
+    }
     if (hatchTime !== undefined) monster.hatchTime = hatchTime;
-    if (negativeValue !== undefined) monster.moodScore = 100 - negativeValue; 
+    
+    // 🛠️ 核心防禦：安全將前端丟來的 negativeValue 換算成後端合規的 moodScore 
+    if (negativeValue !== undefined && !isNaN(negativeValue)) {
+      monster.moodScore = Math.max(0, Math.min(100, 100 - Number(negativeValue))); 
+    }
+    
     if (emotionLabel !== undefined) monster.emotionLabel = emotionLabel;
-    if (conversationCount !== undefined) monster.conversationCount = conversationCount;
 
     if (color !== undefined) monster.color = color;
     if (accessories !== undefined) {
@@ -576,10 +591,6 @@ app.post('/api/monster/:userId/update', async (req, res) => {
     console.error('即時同步怪獸失敗：', error);
     res.status(500).json({ message: '伺服器同步發生錯誤' });
   }
-});
-
-app.listen(port, () => {
-  console.log(`伺服器已經在 http://localhost:${port} 启动囉！`);
 });
 
 app.post('/api/monster/:userId/time-travel', async (req, res) => {
@@ -598,4 +609,8 @@ app.post('/api/monster/:userId/time-travel', async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: '時光機故障' });
   }
+});
+
+app.listen(port, () => {
+  console.log(`伺服器已經在 http://localhost:${port} 啟動囉！`);
 });

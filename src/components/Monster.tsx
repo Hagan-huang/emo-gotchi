@@ -14,8 +14,16 @@ export function MonsterAvatar({
   isInteractive = false,
   onInteract,
 }: MonsterProps) {
-  // 🛠️ 核心修正 1：從 state 完美解構出全新加入的 hand（手持道具）部位
-  const { color, emotionLabel, accessories, negativeValue, isEgg } = state;
+  // 從 state 解構出外觀狀態
+  const { color, emotionLabel, accessories, negativeValue, isEgg: rawIsEgg } = state;
+
+  // 🛠️【終極破殼發動射線】
+  // 只要對話次數大於等於 3 次，或者身上有穿戴任何一件配飾（頭、臉、身體、手）
+  // 就代表牠「絕對不可能再是顆蛋」，我們在這裡強制將 isEgg 修正為 false，強制牠脫殼變形！
+  const hasAnyAccessory = !!(accessories?.head || accessories?.face || accessories?.body || (accessories as any)?.hand);
+  const conversationCount = state.conversationCount || 0;
+  
+  const isEgg = (conversationCount >= 3 || hasAnyAccessory) ? false : rawIsEgg;
 
   // 決定表情變化
   const isAngry = negativeValue >= 70;
@@ -105,7 +113,7 @@ export function MonsterAvatar({
           />
         )}
 
-        {/* 柔軟的有機體 (Blob) */}
+        {/* 柔軟的有機體 (Blob) - 根據上面修正後的 isEgg 連動變形！ */}
         <g fill={color}>
           {isEgg ? (
             <path
@@ -255,17 +263,17 @@ export function MonsterAvatar({
           </text>
         )}
 
-        {/* 🛠️ 核心修正 2：在 SVG 世界中，幫小怪獸開闢右下角的「手持道具 (hand)」圖層定位！ */}
+        {/* 手持道具 (hand) 圖層定位 */}
         {!isEgg && (accessories as any).hand && (
           <text
-            x="185" // 靠近小怪獸右手邊的位置
-            y="145" // 身體右下方的位置
+            x="185" 
+            y="145" 
             fontSize="55"
             textAnchor="middle"
             dominantBaseline="central"
             style={{
               transformOrigin: "185px 145px",
-              transform: "rotate(10deg)", // 讓珍奶或光劍歪歪的看起來更動感可愛
+              transform: "rotate(10deg)", 
             }}
             className="pointer-events-none drop-shadow-lg animate-bounce-slow"
           >
