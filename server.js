@@ -105,6 +105,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ message: '請輸入帳密！' });
+    
     const existingUser = await User.findOne({ username });
     if (existingUser) return res.status(400).json({ message: '帳號重複囉！' });
 
@@ -112,18 +113,22 @@ app.post('/api/auth/register', async (req, res) => {
     const newUser = new User({ username, password: hashedPassword });
     await newUser.save();
 
-    // 🥚 催生初始蛋：預留安全手持配件槽
+    // 💡【安全通關修正】先不要在程式碼裡手寫複雜的物件結構，直接給予最基本的欄位！
+    // 讓 MongoDB 依照我們在 models/Monster.js 設定好的 default 預設值去自動生成結構
+    // 這樣可以 100% 規避因為新舊格式打架導致的存檔失敗！
     const newMonster = new Monster({ 
       userId: newUser._id, 
       name: '神祕的蛋', 
-      isEgg: true,
-      accessories: { head: null, face: null, body: null, hand: null }
+      isEgg: true
     });
     await newMonster.save();
 
+    console.log(`🎉 用戶 ${username} 註冊成功，並已成功催生初始怪獸蛋！`);
     res.status(201).json({ message: '註冊成功！', userId: newUser._id });
   } catch (error) {
-    res.status(500).json({ message: '註冊失敗' });
+    // 🕵️ 如果真的不幸又失敗，這行會在 Render 的 Logs 裡印出最真實殘酷的死因！
+    console.error('❌ 雲端註冊機制發生核心爆炸，原因：', error);
+    res.status(500).json({ message: '註冊失敗，伺服器存檔發生異常' });
   }
 });
 
